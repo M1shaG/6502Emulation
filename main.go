@@ -147,6 +147,7 @@ func (c *CPU) LDASetStatus() {
 // XXX - Name of Instruction
 // AM - Addressing Mode
 const (
+	// LDA
 	INS_LDA_IM   byte = 0xA9
 	INS_LDA_ZP   byte = 0xA5
 	INS_LDA_ZPX  byte = 0xB5
@@ -155,7 +156,20 @@ const (
 	INS_LDA_ABSY byte = 0xB9
 	INS_LDA_INDX byte = 0xA1
 	INS_LDA_INDY byte = 0xB1
-	INS_JSR      byte = 0x20
+	// lDX
+	INS_LDX_IM   byte = 0xA2
+	INS_LDX_ZP   byte = 0xA6
+	INS_LDX_ZPY  byte = 0xB6
+	INS_LDX_ABS  byte = 0xAE
+	INS_LDX_ABSY byte = 0xBE
+	// LDY
+	INS_LDY_IM   byte = 0xA0
+	INS_LDY_ZP   byte = 0xA4
+	INS_LDY_ZPX  byte = 0xB4
+	INS_LDY_ABS  byte = 0xAC
+	INS_LDY_ABSX byte = 0xBC
+
+	INS_JSR byte = 0x20
 )
 
 func (c *CPU) Execute(Cycles int32, memory *Mem) int32 {
