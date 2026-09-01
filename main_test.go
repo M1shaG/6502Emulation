@@ -48,12 +48,11 @@ func TestTheCPUDoesNothingWhenWeExecuteZeroCycles(t *testing.T) {
 func TestCPUCanExecuteMoreCyclesThanRequestedIfRequiredByTheInstruction(t *testing.T) {
 	// given:
 	cpu, mem := newTestCPU()
-
-	// when:
 	mem.Data[0xFFFC] = INS_LDA_IM
 	mem.Data[0xFFFD] = 0x84
 	const NUM_CYCLES = 1
 
+	// when:
 	cyclesUsed := cpu.Execute(NUM_CYCLES, mem)
 
 	// then:
@@ -75,12 +74,11 @@ func expectUnaffectedFlags(t *testing.T, before, after byte) {
 func TestLDAImmediateCanLoadAValueIntoTheARegister(t *testing.T) {
 	// given:
 	cpu, mem := newTestCPU()
-
 	mem.Data[0xFFFC] = INS_LDA_IM
 	mem.Data[0xFFFD] = 0x84
+	statusBefore := cpu.Status
 
 	// when:
-	statusBefore := cpu.Status
 	cyclesUsed := cpu.Execute(2, mem)
 
 	// then:
@@ -105,13 +103,12 @@ func TestLDAImmediateCanLoadAValueIntoTheARegister(t *testing.T) {
 func TestLDAImmediateCanAffectTheZeroFlag(t *testing.T) {
 	// given:
 	cpu, mem := newTestCPU()
-
 	cpu.A = 0x44
 	mem.Data[0xFFFC] = INS_LDA_IM
 	mem.Data[0xFFFD] = 0x0
+	statusBefore := cpu.Status
 
 	// when:
-	statusBefore := cpu.Status
 	cyclesUsed := cpu.Execute(2, mem)
 
 	// then:
@@ -134,7 +131,6 @@ func TestLDAImmediateCanAffectTheZeroFlag(t *testing.T) {
 }
 
 func TestLDAZeroPageCanLoadAValueIntoTheARegister(t *testing.T) {
-
 	// given:
 	cpu, mem := newTestCPU()
 
@@ -167,16 +163,14 @@ func TestLDAZeroPageCanLoadAValueIntoTheARegister(t *testing.T) {
 }
 
 func TestLDAZeroPageXCanLoadAValueIntoTheARegister(t *testing.T) {
-
 	// given:
 	cpu, mem := newTestCPU()
-
 	mem.Data[0xFFFC] = INS_LDA_ZPX
 	mem.Data[0xFFFD] = 0x42
 	mem.Data[0x0042] = 0x37
+	statusBefore := cpu.Status
 
 	// when:
-	statusBefore := cpu.Status
 	cyclesUsed := cpu.Execute(4, mem)
 
 	// then:
@@ -200,17 +194,15 @@ func TestLDAZeroPageXCanLoadAValueIntoTheARegister(t *testing.T) {
 }
 
 func TestLDAZeroPageXCanLoadAValueIntoTheARegisterWhenItWraps(t *testing.T) {
-
 	// given:
 	cpu, mem := newTestCPU()
-
 	cpu.X = 0xFF
 	mem.Data[0xFFFC] = INS_LDA_ZPX
 	mem.Data[0xFFFD] = 0x80
 	mem.Data[0x007F] = 0x37
+	statusBefore := cpu.Status
 
 	// when:
-	statusBefore := cpu.Status
 	cyclesUsed := cpu.Execute(4, mem)
 
 	// then:
@@ -511,12 +503,11 @@ func TestLDAIndirectYCanLoadAValueIntoTheARegisterWhenItCrossesAPage(t *testing.
 func TestLDXImmediateCanLoadAValueIntoTheXRegister(t *testing.T) {
 	// given:
 	cpu, mem := newTestCPU()
-
 	mem.Data[0xFFFC] = INS_LDX_IM
 	mem.Data[0xFFFD] = 0x84
+	statusBefore := cpu.Status
 
 	// when:
-	statusBefore := cpu.Status
 	cyclesUsed := cpu.Execute(2, mem)
 
 	// then:
@@ -541,13 +532,12 @@ func TestLDXImmediateCanLoadAValueIntoTheXRegister(t *testing.T) {
 func TestLDXImmediateCanAffectTheZeroFlag(t *testing.T) {
 	// given:
 	cpu, mem := newTestCPU()
-
 	cpu.X = 0x44
 	mem.Data[0xFFFC] = INS_LDX_IM
 	mem.Data[0xFFFD] = 0x0
+	statusBefore := cpu.Status
 
 	// when:
-	statusBefore := cpu.Status
 	cyclesUsed := cpu.Execute(2, mem)
 
 	// then:
@@ -570,16 +560,14 @@ func TestLDXImmediateCanAffectTheZeroFlag(t *testing.T) {
 }
 
 func TestLDXZeroPageCanLoadAValueIntoTheXRegister(t *testing.T) {
-
 	// given:
 	cpu, mem := newTestCPU()
-
 	mem.Data[0xFFFC] = INS_LDX_ZP
 	mem.Data[0xFFFD] = 0x42
 	mem.Data[0x0042] = 0x37
+	statusBefore := cpu.Status
 
 	// when:
-	statusBefore := cpu.Status
 	cyclesUsed := cpu.Execute(3, mem)
 
 	// then:
@@ -603,16 +591,14 @@ func TestLDXZeroPageCanLoadAValueIntoTheXRegister(t *testing.T) {
 }
 
 func TestLDXZeroPageYCanLoadAValueIntoTheXRegister(t *testing.T) {
-
 	// given:
 	cpu, mem := newTestCPU()
-
 	mem.Data[0xFFFC] = INS_LDX_ZPY
 	mem.Data[0xFFFD] = 0x42
 	mem.Data[0x0042] = 0x37
+	statusBefore := cpu.Status
 
 	// when:
-	statusBefore := cpu.Status
 	cyclesUsed := cpu.Execute(4, mem)
 
 	// then:
@@ -635,18 +621,16 @@ func TestLDXZeroPageYCanLoadAValueIntoTheXRegister(t *testing.T) {
 	expectUnaffectedFlags(t, statusBefore, cpu.Status)
 }
 
-func TestLDXZeroPageYCanLoadAValueIntoTheARegisterWhenItWraps(t *testing.T) {
-
+func TestLDXZeroPageYCanLoadAValueIntoTheXRegisterWhenItWraps(t *testing.T) {
 	// given:
 	cpu, mem := newTestCPU()
-
-	cpu.X = 0xFF
+	cpu.Y = 0xFF
 	mem.Data[0xFFFC] = INS_LDX_ZPY
 	mem.Data[0xFFFD] = 0x80
 	mem.Data[0x007F] = 0x37
+	statusBefore := cpu.Status
 
 	// when:
-	statusBefore := cpu.Status
 	cyclesUsed := cpu.Execute(4, mem)
 
 	// then:
@@ -690,6 +674,330 @@ func TestLDXAbsoluteCanLoadAValueIntoTheXRegister(t *testing.T) {
 
 	if cyclesUsed != NUM_CYCLES {
 		t.Errorf("cyclesUsed = %d, want 4", cyclesUsed)
+	}
+
+	if cpu.Status&FlagZ != 0 {
+		t.Error("Z flag should be clear")
+	}
+
+	if cpu.Status&FlagN != 0 {
+		t.Error("N flag should be set")
+	}
+
+	expectUnaffectedFlags(t, statusBefore, cpu.Status)
+}
+
+func TestLDXAbsoluteYCanLoadAValueIntoTheXRegister(t *testing.T) {
+	// given:
+	cpu, mem := newTestCPU()
+	cpu.Y = 1
+	mem.Data[0xFFFC] = INS_LDX_ABSY
+	mem.Data[0xFFFD] = 0x80
+	mem.Data[0xFFFE] = 0x44 // 0x4480
+	mem.Data[0x4481] = 0x37
+	const NUM_CYCLES = 4
+	statusBefore := cpu.Status
+
+	// when:
+	cyclesUsed := cpu.Execute(NUM_CYCLES, mem)
+
+	// then:
+	if cpu.X != 0x37 {
+		t.Errorf("X = %#02x, want 0x37", cpu.X)
+	}
+
+	if cyclesUsed != NUM_CYCLES {
+		t.Errorf("cyclesUsed = %d, want 4", cyclesUsed)
+	}
+
+	if cpu.Status&FlagZ != 0 {
+		t.Error("Z flag should be clear")
+	}
+
+	if cpu.Status&FlagN != 0 {
+		t.Error("N flag should be set")
+	}
+
+	expectUnaffectedFlags(t, statusBefore, cpu.Status)
+}
+
+func TestLDXAbsoluteYCanLoadAValueIntoTheXRegisterWhenItCrossesAPageBoundary(t *testing.T) {
+	// given:
+	cpu, mem := newTestCPU()
+	cpu.Y = 0xFF
+	mem.Data[0xFFFC] = INS_LDX_ABSY
+	mem.Data[0xFFFD] = 0x02
+	mem.Data[0xFFFE] = 0x44 // 0x4402
+	mem.Data[0x4501] = 0x37 // 0x4402 + 0xFF cross page boundary!
+	const NUM_CYCLES = 5
+	statusBefore := cpu.Status
+
+	// when:
+	cyclesUsed := cpu.Execute(NUM_CYCLES, mem)
+
+	// then:
+	if cpu.X != 0x37 {
+		t.Errorf("X = %#02x, want 0x37", cpu.X)
+	}
+
+	if cyclesUsed != NUM_CYCLES {
+		t.Errorf("cyclesUsed = %d, want 5", cyclesUsed)
+	}
+
+	if cpu.Status&FlagZ != 0 {
+		t.Error("Z flag should be clear")
+	}
+
+	if cpu.Status&FlagN != 0 {
+		t.Error("N flag should be set")
+	}
+
+	expectUnaffectedFlags(t, statusBefore, cpu.Status)
+}
+
+// LDY
+func TestLDYImmediateCanLoadAValueIntoTheYRegister(t *testing.T) {
+	// given:
+	cpu, mem := newTestCPU()
+	mem.Data[0xFFFC] = INS_LDY_IM
+	mem.Data[0xFFFD] = 0x84
+	statusBefore := cpu.Status
+
+	// when:
+	cyclesUsed := cpu.Execute(2, mem)
+
+	// then:
+	if cpu.Y != 0x84 {
+		t.Errorf("Y = %#02x, want 0x84", cpu.Y)
+	}
+
+	if cyclesUsed != 2 {
+		t.Errorf("cyclesUsed = %d, want 2", cyclesUsed)
+	}
+
+	if cpu.Status&FlagZ != 0 {
+		t.Error("Z flag should be clear")
+	}
+
+	if cpu.Status&FlagN == 0 {
+		t.Error("N flag should be set")
+	}
+	expectUnaffectedFlags(t, statusBefore, cpu.Status)
+}
+
+func TestLDYImmediateCanAffectTheZeroFlag(t *testing.T) {
+	// given:
+	cpu, mem := newTestCPU()
+	cpu.Y = 0x44
+	mem.Data[0xFFFC] = INS_LDY_IM
+	mem.Data[0xFFFD] = 0x0
+	statusBefore := cpu.Status
+
+	// when:
+	cyclesUsed := cpu.Execute(2, mem)
+
+	// then:
+	if cpu.Y != 0x0 {
+		t.Errorf("Y = %#02x, want 0x84", cpu.Y)
+	}
+
+	if cyclesUsed != 2 {
+		t.Errorf("cyclesUsed = %d, want 2", cyclesUsed)
+	}
+
+	if cpu.Status&FlagZ == 0 {
+		t.Error("Z flag should be set")
+	}
+
+	if cpu.Status&FlagN != 0 {
+		t.Error("N flag should be clear")
+	}
+	expectUnaffectedFlags(t, statusBefore, cpu.Status)
+}
+
+func TestLDYZeroPageCanLoadAValueIntoTheYRegister(t *testing.T) {
+	// given:
+	cpu, mem := newTestCPU()
+	mem.Data[0xFFFC] = INS_LDY_ZP
+	mem.Data[0xFFFD] = 0x42
+	mem.Data[0x0042] = 0x37
+	statusBefore := cpu.Status
+
+	// when:
+	cyclesUsed := cpu.Execute(3, mem)
+
+	// then:
+	if cpu.Y != 0x37 {
+		t.Errorf("Y = %#02x, want 0x37", cpu.Y)
+	}
+
+	if cyclesUsed != 3 {
+		t.Errorf("cyclesUsed = %d, want 2", cyclesUsed)
+	}
+
+	if cpu.Status&FlagZ != 0 {
+		t.Error("Z flag should be clear")
+	}
+
+	if cpu.Status&FlagN != 0 {
+		t.Error("N flag should be set")
+	}
+
+	expectUnaffectedFlags(t, statusBefore, cpu.Status)
+}
+
+func TestLDYZeroPageXCanLoadAValueIntoTheXRegister(t *testing.T) {
+	// given:
+	cpu, mem := newTestCPU()
+	mem.Data[0xFFFC] = INS_LDY_ZPX
+	mem.Data[0xFFFD] = 0x42
+	mem.Data[0x0042] = 0x37
+	statusBefore := cpu.Status
+
+	// when:
+	cyclesUsed := cpu.Execute(4, mem)
+
+	// then:
+	if cpu.Y != 0x37 {
+		t.Errorf("Y = %#02x, want 0x37", cpu.Y)
+	}
+
+	if cyclesUsed != 4 {
+		t.Errorf("cyclesUsed = %d, want 2", cyclesUsed)
+	}
+
+	if cpu.Status&FlagZ != 0 {
+		t.Error("Z flag should be clear")
+	}
+
+	if cpu.Status&FlagN != 0 {
+		t.Error("N flag should be set")
+	}
+
+	expectUnaffectedFlags(t, statusBefore, cpu.Status)
+}
+
+func TestLDYZeroPageXCanLoadAValueIntoTheYRegisterWhenItWraps(t *testing.T) {
+	// given:
+	cpu, mem := newTestCPU()
+	cpu.X = 0xFF
+	mem.Data[0xFFFC] = INS_LDY_ZPX
+	mem.Data[0xFFFD] = 0x80
+	mem.Data[0x007F] = 0x37
+	statusBefore := cpu.Status
+
+	// when:
+	cyclesUsed := cpu.Execute(4, mem)
+
+	// then:
+	if cpu.Y != 0x37 {
+		t.Errorf("Y = %#02x, want 0x37", cpu.Y)
+	}
+
+	if cyclesUsed != 4 {
+		t.Errorf("cyclesUsed = %d, want 2", cyclesUsed)
+	}
+
+	if cpu.Status&FlagZ != 0 {
+		t.Error("Z flag should be clear")
+	}
+
+	if cpu.Status&FlagN != 0 {
+		t.Error("N flag should be set")
+	}
+
+	expectUnaffectedFlags(t, statusBefore, cpu.Status)
+
+}
+
+func TestLDYAbsoluteCanLoadAValueIntoTheYRegister(t *testing.T) {
+	// given:
+	cpu, mem := newTestCPU()
+	mem.Data[0xFFFC] = INS_LDX_ABS
+	mem.Data[0xFFFD] = 0x80
+	mem.Data[0xFFFE] = 0x44 // 0x4480
+	mem.Data[0x4480] = 0x37
+	const NUM_CYCLES = 4
+	statusBefore := cpu.Status
+
+	// when:
+	cyclesUsed := cpu.Execute(NUM_CYCLES, mem)
+
+	// then:
+	if cpu.Y != 0x37 {
+		t.Errorf("Y = %#02x, want 0x37", cpu.Y)
+	}
+
+	if cyclesUsed != NUM_CYCLES {
+		t.Errorf("cyclesUsed = %d, want 4", cyclesUsed)
+	}
+
+	if cpu.Status&FlagZ != 0 {
+		t.Error("Z flag should be clear")
+	}
+
+	if cpu.Status&FlagN != 0 {
+		t.Error("N flag should be set")
+	}
+
+	expectUnaffectedFlags(t, statusBefore, cpu.Status)
+}
+
+func TestLDYAbsoluteXCanLoadAValueIntoTheYRegister(t *testing.T) {
+	// given:
+	cpu, mem := newTestCPU()
+	cpu.X = 1
+	mem.Data[0xFFFC] = INS_LDY_ABSX
+	mem.Data[0xFFFD] = 0x80
+	mem.Data[0xFFFE] = 0x44 // 0x4480
+	mem.Data[0x4481] = 0x37
+	const NUM_CYCLES = 4
+	statusBefore := cpu.Status
+
+	// when:
+	cyclesUsed := cpu.Execute(NUM_CYCLES, mem)
+
+	// then:
+	if cpu.Y != 0x37 {
+		t.Errorf("Y = %#02x, want 0x37", cpu.Y)
+	}
+
+	if cyclesUsed != NUM_CYCLES {
+		t.Errorf("cyclesUsed = %d, want 4", cyclesUsed)
+	}
+
+	if cpu.Status&FlagZ != 0 {
+		t.Error("Z flag should be clear")
+	}
+
+	if cpu.Status&FlagN != 0 {
+		t.Error("N flag should be set")
+	}
+
+	expectUnaffectedFlags(t, statusBefore, cpu.Status)
+}
+
+func TestLDYAbsoluteXCanLoadAValueIntoTheYRegisterWhenItCrossesAPageBoundary(t *testing.T) {
+	// given:
+	cpu, mem := newTestCPU()
+	cpu.X = 0xFF
+	mem.Data[0xFFFC] = INS_LDY_ABSX
+	mem.Data[0xFFFD] = 0x02
+	mem.Data[0xFFFE] = 0x44 // 0x4402
+	mem.Data[0x4501] = 0x37 // 0x4402 + 0xFF cross page boundary!
+	const NUM_CYCLES = 5
+	statusBefore := cpu.Status
+
+	// when:
+	cyclesUsed := cpu.Execute(NUM_CYCLES, mem)
+
+	// then:
+	if cpu.Y != 0x37 {
+		t.Errorf("Y = %#02x, want 0x37", cpu.Y)
+	}
+
+	if cyclesUsed != NUM_CYCLES {
+		t.Errorf("cyclesUsed = %d, want 5", cyclesUsed)
 	}
 
 	if cpu.Status&FlagZ != 0 {
