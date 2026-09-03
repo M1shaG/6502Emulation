@@ -10,7 +10,6 @@ func newTestCPU() (*CPU, *Mem) {
 }
 
 func TestResetSetsCorrectInitialState(t *testing.T) {
-
 	// given:
 	cpu, _ := newTestCPU()
 
@@ -59,7 +58,6 @@ func TestCPUCanExecuteMoreCyclesThanRequestedIfRequiredByTheInstruction(t *testi
 	if cyclesUsed != 2 {
 		t.Errorf("cyclesUsed = %d, want 2", cyclesUsed)
 	}
-
 }
 
 func expectUnaffectedFlags(t *testing.T, before, after byte) {
@@ -450,7 +448,7 @@ func TestLDAIndirectYCanLoadAValueIntoTheARegister(t *testing.T) {
 	}
 
 	if cyclesUsed != NUM_CYCLES {
-		t.Errorf("cyclesUsed = %d, want 4", cyclesUsed)
+		t.Errorf("cyclesUsed = %d, want %d", cyclesUsed, NUM_CYCLES)
 	}
 
 	if cpu.Status&FlagZ != 0 {
@@ -485,7 +483,7 @@ func TestLDAIndirectYCanLoadAValueIntoTheARegisterWhenItCrossesAPage(t *testing.
 	}
 
 	if cyclesUsed != NUM_CYCLES {
-		t.Errorf("cyclesUsed = %d, want 4", cyclesUsed)
+		t.Errorf("cyclesUsed = %d, want %d", cyclesUsed, NUM_CYCLES)
 	}
 
 	if cpu.Status&FlagZ != 0 {
@@ -651,7 +649,6 @@ func TestLDXZeroPageYCanLoadAValueIntoTheXRegisterWhenItWraps(t *testing.T) {
 	}
 
 	expectUnaffectedFlags(t, statusBefore, cpu.Status)
-
 }
 
 func TestLDXAbsoluteCanLoadAValueIntoTheXRegister(t *testing.T) {
@@ -907,13 +904,12 @@ func TestLDYZeroPageXCanLoadAValueIntoTheYRegisterWhenItWraps(t *testing.T) {
 	}
 
 	expectUnaffectedFlags(t, statusBefore, cpu.Status)
-
 }
 
 func TestLDYAbsoluteCanLoadAValueIntoTheYRegister(t *testing.T) {
 	// given:
 	cpu, mem := newTestCPU()
-	mem.Data[0xFFFC] = INS_LDX_ABS
+	mem.Data[0xFFFC] = INS_LDY_ABS
 	mem.Data[0xFFFD] = 0x80
 	mem.Data[0xFFFE] = 0x44 // 0x4480
 	mem.Data[0x4480] = 0x37

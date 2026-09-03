@@ -2,78 +2,16 @@ package main
 
 import "fmt"
 
-// TODO:
-// Methods for bit manipulation
-// WriteWord function
-
-type word uint16 // handy name for 16bit
-
-// 64 KB
-const MAX_MEM = 1024 * 64
-
-type Mem struct {
-	Data [MAX_MEM]byte
-}
-
 // 6502 Documentation
 // https://6502.org/users/obelisk/6502/
 
-// Manipulate with bits
-//
-// cpu.Status |= FlagX -> Set X status to 1
-// cpu.Status &^= FlagX -> Set X status to 0
-// cpu.Status ^= FlagX -> test whether X is set
-// cpu.Status ^= FlagX -> toggle X, e.g X was 0 became 1, was 1 became 0
-const (
-	FlagC byte = 1 << iota
-	FlagZ
-	FlagI
-	FlagD
-	FlagB
-	_
-	FlagV
-	FlagN
-)
-
-type CPU struct {
-	PC word // Program Counter
-	SP byte // Stack Pointer
-
-	A, X, Y byte //  Accumulator, Index Register X, Index Register Y
-
-	// Processor Status
-	// #7 #6 #5 #4 #3 #2 #1 #0 - List of bits
-	// #0 (C) - Carry Flag
-	// #1 (Z) - Zero Flag
-	// #2 (I) - Interrupt Disable Flag
-	// #3 (D) - Decimal Mode Flag
-	// #4 (B) - Break Flag
-	// #5 - unused
-	// #6 (V) - Overflow Flag
-	// #7 (N) - Negative Flag
-	// https://www.middle-engine.com/images/2020-06-23-programming-the-nes-the-6502-in-detail/processor-status-register-2x.png
-	Status byte
-}
-
-type Memory interface {
-	Init()
-}
+// Memory
 
 // Fill memory with zeros
 func (memory *Mem) Init() {
 	for i := 0; i < MAX_MEM; i++ {
 		memory.Data[i] = 0
 	}
-}
-
-type Processor interface {
-	Reset(memory *Mem)
-	FetchByte(Cycles *uint32, memory *Mem) byte
-	ReadByteFromByte(Cycles *uint32, Address byte, memory *Mem) byte
-	ReadByteFromWord(Cycles *uint32, Address word, memory *Mem) byte
-	ReadWord(Cycles *uint32, Address word, memory *Mem) byte
-	FetchWord(Cycles *uint32, memory *Mem) word
-	Execute(memory *Mem)
 }
 
 // Reset CPU (Initialize and start program execution)
@@ -90,6 +28,8 @@ func (c *CPU) Reset(memory *Mem) {
 	c.A, c.X, c.Y = 0, 0, 0
 	memory.Init()
 }
+
+// CPU
 
 // Reading Functions
 func (c *CPU) FetchByte(Cycles *int32, memory *Mem) byte {
@@ -128,16 +68,115 @@ func (c *CPU) FetchWord(Cycles *int32, memory *Mem) word {
 
 	// TODO: handle big endian
 	return Data
-
 }
 
-func (c *CPU) LDASetStatus() {
-	if c.A == 0 {
-		c.Status |= FlagZ
+// Addressing modes
+// Immediate
+// Immediate addressing allows specify an 8 bit constant within the instruction.
+// Example: LDA #10 -> Load 10 into the accumulator
+// We already have FetchByte() func which implement this mode
+
+// Zero Page
+// This addressing mode can references only to first 256bytes of memory.
+// And use only the least significant byte of the address. The most significant byte is always zero.
+// For example , LDY $10 -> Load from memory address $10 value into Y register
+func (c *CPU) AddrZeroPage(Cycles *int32, memory *Mem) byte {
+	ZeroPageAddr := c.FetchByte(Cycles, memory)
+	return ZeroPageAddr
+}
+
+// Zero Page X
+// Same as Zero page, but we add to address value from X register.
+// Wraps the byte if exceed $008F. For example, $80 + $FF = $8F
+//
+//	1000 0000 ($80)
+//
+// + 1111 1111 ($FF)
+// 1 0111 1111 ($17F) 9 bit drop last bit/
+//
+//	0111 1111 ($7F)
+//
+// For example , LDX $10, Y -> Load from memory address $10 + Y value into X register
+func (c *CPU) AddrZeroPageX(Cycles *int32, memory *Mem) byte {
+	ZeroPageAddr := c.FetchByte(Cycles, memory)
+	ZeroPageAddr += c.X
+	*Cycles--
+	return ZeroPageAddr
+}
+
+// Zero Page Y
+func (c *CPU) AddrZeroPageY(Cycles *int32, memory *Mem) byte {
+	ZeroPageAddr := c.FetchByte(Cycles, memory)
+	ZeroPageAddr += c.Y
+	*Cycles--
+	return ZeroPageAddr
+}
+
+// Absolute
+// Can references to full 16bit address\
+// For examle, LDA $1000 -> Load value into accumulator from address $1000
+func (c *CPU) AddrAbsolute(Cycles *int32, memory *Mem) word {
+	AbsAddress := c.FetchWord(Cycles, memory)
+	return AbsAddress
+}
+
+// Absolute X
+// Can references to full 16bit address, but we add to Address X value
+// For examle, LDA $1000, X -> Load value into accumulator from address $1000 + X
+func (c *CPU) AddrAbsoluteX(Cycles *int32, memory *Mem) word {
+	AbsAddress := c.FetchWord(Cycles, memory)
+	AbsAddressX := AbsAddress + word(c.X)
+	if AbsAddressX-AbsAddress >= 0xFF {
+		*Cycles--
+	}
+	return AbsAddressX
+}
+
+// Absolute Y
+// Can references to full 16bit address, but we add to Address Y value
+// For examle, LDA $1000, Y -> Load value into accumulator from address $1000 + Y
+func (c *CPU) AddrAbsoluteY(Cycles *int32, memory *Mem) word {
+	AbsAddress := c.FetchWord(Cycles, memory)
+	AbsAddressY := AbsAddress + word(c.Y)
+	if AbsAddressY-AbsAddress >= 0xFF {
+		*Cycles--
+	}
+	return AbsAddressY
+}
+
+// Indexed Indirect (INDX)
+// We have memory address, for example $10, then to that address we add
+// value from X register and from that value we read byte as address and
+// go to that address
+func (c *CPU) AddrIndirectX(Cycles *int32, memory *Mem) word {
+	ZPAddress := c.FetchByte(Cycles, memory)
+	ZPAddress += c.X
+	*Cycles--
+	EffectiveAddr := c.ReadWord(Cycles, word(ZPAddress), memory)
+	return EffectiveAddr
+}
+
+// TODO: COMMENTS
+// Indirect Indexed (INDY)
+func (c *CPU) AddrIndirectY(Cycles *int32, memory *Mem) word {
+	ZPAddress := c.FetchByte(Cycles, memory)
+	EffectiveAddr := c.ReadWord(Cycles, word(ZPAddress), memory)
+	EffectiveAddrY := EffectiveAddr + word(c.Y)
+	if EffectiveAddrY-EffectiveAddr >= 0xFF {
+		*Cycles--
+	}
+	return EffectiveAddrY
+}
+
+// LDA, LDX, LDY helpful function
+// Set correct status when instruction executed
+func (c *CPU) LoadRegisterSetStatus(Register byte) {
+	if Register == 0 {
+		c.SetFlag(FlagZ)
 	}
 
-	if (c.A & 0b10000000) > 0 {
-		c.Status |= FlagN
+	if (Register & 0b10000000) > 0 {
+		c.SetFlag(FlagN)
 	}
 }
 
@@ -156,7 +195,7 @@ const (
 	INS_LDA_ABSY byte = 0xB9
 	INS_LDA_INDX byte = 0xA1
 	INS_LDA_INDY byte = 0xB1
-	// lDX
+	// LDX
 	INS_LDX_IM   byte = 0xA2
 	INS_LDX_ZP   byte = 0xA6
 	INS_LDX_ZPY  byte = 0xB6
@@ -173,7 +212,6 @@ const (
 )
 
 func (c *CPU) Execute(Cycles int32, memory *Mem) int32 {
-
 	CyclesRequested := Cycles
 
 executeLoop:
@@ -181,51 +219,97 @@ executeLoop:
 		Ins := c.FetchByte(&Cycles, memory)
 
 		switch Ins {
+		//LDA Immediate
 		case INS_LDA_IM:
 			Value := c.FetchByte(&Cycles, memory)
 			c.A = Value
-			c.LDASetStatus()
+			c.LoadRegisterSetStatus(c.A)
+		//LDX Immediate
+		case INS_LDX_IM:
+			Value := c.FetchByte(&Cycles, memory)
+			c.X = Value
+			c.LoadRegisterSetStatus(c.X)
+		//LDY Immediate
+		case INS_LDY_IM:
+			Value := c.FetchByte(&Cycles, memory)
+			c.Y = Value
+			c.LoadRegisterSetStatus(c.Y)
+		//LDA Zero Page
 		case INS_LDA_ZP:
-			ZeroPageAddress := c.FetchByte(&Cycles, memory)
-			c.A = c.ReadByteFromByte(&Cycles, ZeroPageAddress, memory)
-			c.LDASetStatus()
+			Address := c.AddrZeroPage(&Cycles, memory)
+			c.A = c.ReadByteFromByte(&Cycles, Address, memory)
+			c.LoadRegisterSetStatus(c.A)
+		//LDX Zero Page
+		case INS_LDX_ZP:
+			Address := c.AddrZeroPage(&Cycles, memory)
+			c.X = c.ReadByteFromByte(&Cycles, Address, memory)
+			c.LoadRegisterSetStatus(c.X)
+		//LDY Zero Page
+		case INS_LDY_ZP:
+			Address := c.AddrZeroPage(&Cycles, memory)
+			c.Y = c.ReadByteFromByte(&Cycles, Address, memory)
+			c.LoadRegisterSetStatus(c.Y)
+		//LDA Zero Page X
 		case INS_LDA_ZPX:
-			ZeroPageAddress := c.FetchByte(&Cycles, memory)
-			ZeroPageAddress += c.X
-			Cycles--
-			c.A = c.ReadByteFromByte(&Cycles, ZeroPageAddress, memory)
-			c.LDASetStatus()
+			Address := c.AddrZeroPageX(&Cycles, memory)
+			c.A = c.ReadByteFromByte(&Cycles, Address, memory)
+			c.LoadRegisterSetStatus(c.A)
+		//LDY Zero Page X
+		case INS_LDY_ZPX:
+			Address := c.AddrZeroPageX(&Cycles, memory)
+			c.Y = c.ReadByteFromByte(&Cycles, Address, memory)
+			c.LoadRegisterSetStatus(c.Y)
+		//LDX Zero Page Y
+		case INS_LDX_ZPY:
+			Address := c.AddrZeroPageY(&Cycles, memory)
+			c.X = c.ReadByteFromByte(&Cycles, Address, memory)
+			c.LoadRegisterSetStatus(c.X)
+		//LDA Absolute
 		case INS_LDA_ABS:
-			AbsAddress := c.FetchWord(&Cycles, memory)
-			c.A = c.ReadByteFromWord(&Cycles, AbsAddress, memory)
+			Address := c.AddrAbsolute(&Cycles, memory)
+			c.A = c.ReadByteFromWord(&Cycles, Address, memory)
+			c.LoadRegisterSetStatus(c.A)
+		//LDY Absolute
+		case INS_LDY_ABS:
+			Address := c.AddrAbsolute(&Cycles, memory)
+			c.Y = c.ReadByteFromWord(&Cycles, Address, memory)
+			c.LoadRegisterSetStatus(c.Y)
+		//LDX Absolute
+		case INS_LDX_ABS:
+			Address := c.AddrAbsolute(&Cycles, memory)
+			c.X = c.ReadByteFromWord(&Cycles, Address, memory)
+			c.LoadRegisterSetStatus(c.X)
+		//LDA Absolute X
 		case INS_LDA_ABSX:
-			AbsAddress := c.FetchWord(&Cycles, memory)
-			AbsAddressX := AbsAddress + word(c.X)
-			c.A = c.ReadByteFromWord(&Cycles, AbsAddressX, memory)
-			if AbsAddressX-AbsAddress >= 0xFF {
-				Cycles--
-			}
+			Address := c.AddrAbsoluteX(&Cycles, memory)
+			c.A = c.ReadByteFromWord(&Cycles, Address, memory)
+			c.LoadRegisterSetStatus(c.A)
+		//LDX Absolute Y
+		case INS_LDX_ABSY:
+			Address := c.AddrAbsoluteY(&Cycles, memory)
+			c.X = c.ReadByteFromWord(&Cycles, Address, memory)
+			c.LoadRegisterSetStatus(c.X)
+		//LDY Absolute X
+		case INS_LDY_ABSX:
+			Address := c.AddrAbsoluteX(&Cycles, memory)
+			c.Y = c.ReadByteFromWord(&Cycles, Address, memory)
+			c.LoadRegisterSetStatus(c.Y)
+		//LDA Absolute Y
 		case INS_LDA_ABSY:
-			AbsAddress := c.FetchWord(&Cycles, memory)
-			AbsAddressY := AbsAddress + word(c.Y)
-			c.A = c.ReadByteFromWord(&Cycles, AbsAddressY, memory)
-			if AbsAddressY-AbsAddress >= 0xFF {
-				Cycles--
-			}
+			Address := c.AddrAbsoluteY(&Cycles, memory)
+			c.A = c.ReadByteFromWord(&Cycles, Address, memory)
+			c.LoadRegisterSetStatus(c.A)
+		//LDA Indexed Indirect
 		case INS_LDA_INDX:
-			ZPAddress := c.FetchByte(&Cycles, memory)
-			ZPAddress += c.X
-			Cycles--
-			EffectiveAddr := c.ReadWord(&Cycles, word(ZPAddress), memory)
-			c.A = c.ReadByteFromWord(&Cycles, EffectiveAddr, memory)
+			Address := c.AddrIndirectX(&Cycles, memory)
+			c.A = c.ReadByteFromWord(&Cycles, Address, memory)
+			c.LoadRegisterSetStatus(c.A)
+		//LDA Indirect Indexed
 		case INS_LDA_INDY:
-			ZPAddress := c.FetchByte(&Cycles, memory)
-			EffectiveAddr := c.ReadWord(&Cycles, word(ZPAddress), memory)
-			EffectiveAddrY := EffectiveAddr + word(c.Y)
-			c.A = c.ReadByteFromWord(&Cycles, EffectiveAddrY, memory)
-			if EffectiveAddrY-EffectiveAddr >= 0xFF {
-				Cycles--
-			}
+			Address := c.AddrIndirectY(&Cycles, memory)
+			c.A = c.ReadByteFromWord(&Cycles, Address, memory)
+			c.LoadRegisterSetStatus(c.A)
+		// Sometime i will remember u
 		case INS_JSR:
 			SubAddr := c.FetchWord(&Cycles, memory)
 
