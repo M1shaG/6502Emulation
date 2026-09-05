@@ -207,6 +207,22 @@ const (
 	INS_LDY_ZPX  byte = 0xB4
 	INS_LDY_ABS  byte = 0xAC
 	INS_LDY_ABSX byte = 0xBC
+	// STA
+	INS_STA_ZP   byte = 0x85
+	INS_STA_ZPX  byte = 0x95
+	INS_STA_ABS  byte = 0x8B
+	INS_STA_ABSX byte = 0x9D
+	INS_STA_ABSY byte = 0x99
+	INS_STA_INDX byte = 0x81
+	INS_STA_INDY byte = 0x91
+	// STX
+	INS_STX_ZP  byte = 0x86
+	INS_STX_ZPY byte = 0x96
+	INS_STX_ABS byte = 0x8E
+	// STY
+	INS_STY_ZP  byte = 0x84
+	INS_STY_ZPX byte = 0x94
+	INS_STY_ABS byte = 0x8C
 
 	INS_JSR byte = 0x20
 )
