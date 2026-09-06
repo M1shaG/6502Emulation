@@ -40,6 +40,6 @@ type Processor interface {
 	ReadByteFromWord(Cycles *uint32, Address word, memory *Mem) byte
 	ReadWord(Cycles *uint32, Address word, memory *Mem) byte
 	FetchWord(Cycles *uint32, memory *Mem) word
+	WriteByteTo(Value byte, Cycles *int32, Address word, memory *Mem)
 	Execute(memory *Mem)
 }
-

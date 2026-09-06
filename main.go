@@ -70,6 +70,12 @@ func (c *CPU) FetchWord(Cycles *int32, memory *Mem) word {
 	return Data
 }
 
+// Writing
+func WriteByteTo(Value byte, Cycles *int32, Address word, memory *Mem) {
+	memory.Data[Address] = Value
+	*Cycles--
+}
+
 // Addressing modes
 // Immediate
 // Immediate addressing allows specify an 8 bit constant within the instruction.
@@ -325,6 +331,59 @@ executeLoop:
 			Address := c.AddrIndirectY(&Cycles, memory)
 			c.A = c.ReadByteFromWord(&Cycles, Address, memory)
 			c.LoadRegisterSetStatus(c.A)
+		//STA Zero Page
+		case INS_STA_ZP:
+			Address := c.AddrZeroPage(&Cycles, memory)
+			WriteByteTo(c.A, &Cycles, word(Address), memory)
+		//STA Zero Page X
+		case INS_STA_ZPX:
+			Address := c.AddrZeroPageX(&Cycles, memory)
+			WriteByteTo(c.A, &Cycles, word(Address), memory)
+		//STX Zero Page
+		case INS_STX_ZP:
+			Address := c.AddrZeroPage(&Cycles, memory)
+			WriteByteTo(c.X, &Cycles, word(Address), memory)
+		//STX Zero Page Y
+		case INS_STX_ZPY:
+			Address := c.AddrZeroPageY(&Cycles, memory)
+			WriteByteTo(c.X, &Cycles, word(Address), memory)
+		// STY Zero Page
+		case INS_STY_ZP:
+			Address := c.AddrZeroPage(&Cycles, memory)
+			WriteByteTo(c.Y, &Cycles, word(Address), memory)
+		//STY Zero Page Y
+		case INS_STY_ZPX:
+			Address := c.AddrZeroPageX(&Cycles, memory)
+			WriteByteTo(c.Y, &Cycles, word(Address), memory)
+		//STA Absolute
+		case INS_STA_ABS:
+			Address := c.AddrAbsolute(&Cycles, memory)
+			WriteByteTo(c.A, &Cycles, word(Address), memory)
+		//STX Absolute
+		case INS_STX_ABS:
+			Address := c.AddrAbsolute(&Cycles, memory)
+			WriteByteTo(c.X, &Cycles, word(Address), memory)
+		//STY Absolute
+		case INS_STY_ABS:
+			Address := c.AddrAbsolute(&Cycles, memory)
+			WriteByteTo(c.Y, &Cycles, word(Address), memory)
+		//STA Absolute X
+		case INS_STA_ABSX:
+			Address := c.AddrAbsoluteX(&Cycles, memory)
+			WriteByteTo(c.A, &Cycles, word(Address), memory)
+		//STA Absolute Y
+		case INS_STA_ABSY:
+			Address := c.AddrAbsoluteY(&Cycles, memory)
+			WriteByteTo(c.A, &Cycles, word(Address), memory)
+		//STA Indirect X
+		case INS_STA_INDX:
+			Address := c.AddrIndirectX(&Cycles, memory)
+			WriteByteTo(c.A, &Cycles, word(Address), memory)
+		//STA Indirect Y
+		case INS_STA_INDY:
+			Address := c.AddrIndirectY(&Cycles, memory)
+			WriteByteTo(c.A, &Cycles, word(Address), memory)
+
 		// Sometime i will remember u
 		case INS_JSR:
 			SubAddr := c.FetchWord(&Cycles, memory)
