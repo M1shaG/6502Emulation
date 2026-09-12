@@ -496,106 +496,278 @@ func (c *CPU) ASL() byte {
 	c.SetFlag(FlagC, (c.temp&0xFF00) > 0)
 	c.SetFlag(FlagZ, (c.temp&0x00FF) == 0x00)
 	c.SetFlag(FlagN, c.temp&0x80 != 0)
-	// TODO: IMP Addr
-	c.Write(c.addrAbs, byte(c.temp&0x00FF))
+	if c.currentInstr.isImplied {
+		c.A = byte(c.temp & 0x00FF)
+	} else {
+		c.Write(c.addrAbs, byte(c.temp&0x00FF))
+	}
 	return 0
 }
 
 func (c *CPU) LSR() byte {
 	c.fetch()
-
-	return 0
-}
-
-func (c *CPU) BCC() byte {
-	return 0
-}
-
-func (c *CPU) BCS() byte {
-	return 0
-}
-
-func (c *CPU) BEQ() byte {
-	return 0
-}
-
-func (c *CPU) BMI() byte {
-	return 0
-}
-
-func (c *CPU) BNE() byte {
-	return 0
-}
-
-func (c *CPU) BPL() byte {
-	return 0
-}
-
-func (c *CPU) BRK() byte {
-	return 0
-}
-
-func (c *CPU) BVC() byte {
-	return 0
-}
-
-func (c *CPU) BVS() byte {
-	return 0
-}
-
-func (c *CPU) CLC() byte {
-	return 0
-}
-
-func (c *CPU) CLD() byte {
-	return 0
-}
-
-func (c *CPU) CLI() byte {
-	return 0
-}
-
-func (c *CPU) CLV() byte {
-	return 0
-}
-
-func (c *CPU) JMP() byte {
-	return 0
-}
-
-func (c *CPU) JSR() byte {
-	return 0
-}
-
-func (c *CPU) NOP() byte {
+	c.SetFlag(FlagC, c.fetched&0x0001 != 0)
+	c.temp = Bus.Word(c.fetched) >> 1
+	c.SetFlag(FlagZ, (c.temp&0x00FF) == 0x00)
+	c.SetFlag(FlagN, c.temp&0x80 != 0)
+	if c.currentInstr.isImplied {
+		c.A = byte(c.temp & 0x00FF)
+	} else {
+		c.Write(c.addrAbs, byte(c.temp&0x00FF))
+	}
 	return 0
 }
 
 func (c *CPU) ROL() byte {
+	c.fetch()
+	c.temp = Bus.Word(c.fetched << 1)
+	if c.GetFlag(FlagC) {
+		c.temp |= 1
+	}
+	c.SetFlag(FlagZ, (c.temp&0x00FF) == 0x00)
+	c.SetFlag(FlagN, c.temp&0x0080 != 0)
+	if c.currentInstr.isImplied {
+		c.A = byte(c.temp & 0x00FF) // Probably & 0x00FF it is useless
+	} else {
+		c.Write(c.addrAbs, byte(c.temp&0x00FF))
+	}
 	return 0
 }
 
 func (c *CPU) ROR() byte {
+	c.fetch()
+	if c.GetFlag(FlagC) {
+		c.temp = 1 << 7
+	}
+	c.temp |= Bus.Word(c.fetched >> 1)
+	c.SetFlag(FlagZ, (c.temp&0x00FF) == 0x00)
+	c.SetFlag(FlagN, c.temp&0x0080 != 0)
+	if c.currentInstr.isImplied {
+		c.A = byte(c.temp & 0x00FF)
+	} else {
+		c.Write(c.addrAbs, byte(c.temp&0x00FF))
+	}
 	return 0
 }
 
-func (c *CPU) RTI() byte {
+// Jumps & Calls
+func (c *CPU) JMP() byte {
+	c.PC = c.addrAbs
+	return 0
+}
+
+func (c *CPU) JSR() byte {
+	c.PC--
+	c.Write(0x0100+Bus.Word(c.SP), byte(c.PC>>8)&0x00FF)
+	c.SP--
+	c.Write(0x0100+Bus.Word(c.SP), byte(c.PC>>8)&0x00FF)
+	c.SP--
+
+	c.PC = c.addrAbs
 	return 0
 }
 
 func (c *CPU) RTS() byte {
+	c.SP++
+	c.PC = Bus.Word(c.Read(0x0100 + Bus.Word(c.SP)))
+	c.SP++
+	c.PC |= Bus.Word(c.Read(0x0100 + Bus.Word(c.SP)))
+
+	c.PC++
+	return 0
+}
+
+// Branches
+func (c *CPU) BCC() byte {
+	if !c.GetFlag(FlagC) {
+		c.cycles++
+		c.addrAbs = c.PC + c.addrRel
+
+		if c.addrAbs&0x00FF != (c.PC & 0xFF00) {
+			c.cycles++
+		}
+		c.PC = c.addrAbs
+
+	}
+	return 0
+}
+
+func (c *CPU) BCS() byte {
+	if c.GetFlag(FlagC) {
+		c.cycles++
+		c.addrAbs = c.PC + c.addrRel
+
+		if c.addrAbs&0x00FF != (c.PC & 0xFF00) {
+			c.cycles++
+		}
+		c.PC = c.addrAbs
+
+	}
+	return 0
+}
+
+func (c *CPU) BEQ() byte {
+	if c.GetFlag(FlagZ) {
+		c.cycles++
+		c.addrAbs = c.PC + c.addrRel
+
+		if c.addrAbs&0x00FF != (c.PC & 0xFF00) {
+			c.cycles++
+		}
+		c.PC = c.addrAbs
+
+	}
+	return 0
+}
+
+func (c *CPU) BMI() byte {
+	if c.GetFlag(FlagN) {
+		c.cycles++
+		c.addrAbs = c.PC + c.addrRel
+
+		if c.addrAbs&0x00FF != (c.PC & 0xFF00) {
+			c.cycles++
+		}
+		c.PC = c.addrAbs
+
+	}
+	return 0
+}
+
+func (c *CPU) BNE() byte {
+	if !c.GetFlag(FlagZ) {
+		c.cycles++
+		c.addrAbs = c.PC + c.addrRel
+
+		if c.addrAbs&0x00FF != (c.PC & 0xFF00) {
+			c.cycles++
+		}
+		c.PC = c.addrAbs
+
+	}
+	return 0
+}
+
+func (c *CPU) BPL() byte {
+	if !c.GetFlag(FlagN) {
+		c.cycles++
+		c.addrAbs = c.PC + c.addrRel
+
+		if c.addrAbs&0x00FF != (c.PC & 0xFF00) {
+			c.cycles++
+		}
+		c.PC = c.addrAbs
+
+	}
+	return 0
+}
+
+func (c *CPU) BVC() byte {
+	if !c.GetFlag(FlagV) {
+		c.cycles++
+		c.addrAbs = c.PC + c.addrRel
+
+		if c.addrAbs&0x00FF != (c.PC & 0xFF00) {
+			c.cycles++
+		}
+		c.PC = c.addrAbs
+
+	}
+	return 0
+}
+
+func (c *CPU) BVS() byte {
+	if c.GetFlag(FlagV) {
+		c.cycles++
+		c.addrAbs = c.PC + c.addrRel
+
+		if c.addrAbs&0x00FF != (c.PC & 0xFF00) {
+			c.cycles++
+		}
+		c.PC = c.addrAbs
+
+	}
+	return 0
+}
+
+// Status Flag Changes
+func (c *CPU) CLC() byte {
+	c.SetFlag(FlagC, false)
+	return 0
+}
+
+func (c *CPU) CLD() byte {
+	c.SetFlag(FlagD, false)
+	return 0
+}
+
+func (c *CPU) CLI() byte {
+	c.SetFlag(FlagI, false)
+	return 0
+}
+
+func (c *CPU) CLV() byte {
+	c.SetFlag(FlagV, false)
 	return 0
 }
 
 func (c *CPU) SEC() byte {
+	c.SetFlag(FlagC, false)
 	return 0
 }
 
 func (c *CPU) SED() byte {
+	c.SetFlag(FlagD, false)
 	return 0
 }
 
 func (c *CPU) SEI() byte {
+	c.SetFlag(FlagI, false)
+	return 0
+}
+
+func (c *CPU) BRK() byte {
+	c.PC++
+
+	c.SetFlag(FlagI, true)
+	c.Write(0x0100+Bus.Word(c.SP), byte(Bus.Word(c.PC)>>8))
+	c.SP--
+	c.Write(0x0100+Bus.Word(c.SP), byte(Bus.Word(c.PC)))
+	c.SP--
+
+	c.SetFlag(FlagB, true)
+	c.Write(0x0100+Bus.Word(c.SP), c.Status)
+	c.SP--
+	c.SetFlag(FlagB, false)
+
+	c.PC = Bus.Word(Bus.Word(c.Read(0xFFFE)) | Bus.Word(c.Read(0xFFFF))<<8)
+
+	return 0
+}
+
+func (c *CPU) NOP() byte {
+	switch c.opcode {
+	case 0x1C:
+	case 0x3C:
+	case 0x5C:
+	case 0x7C:
+	case 0xDC:
+	case 0xFC:
+		return 1
+	}
+	return 0
+}
+
+func (c *CPU) RTI() byte {
+	c.SP++
+	c.Status = c.Read(0x0100 + Bus.Word(c.SP))
+	c.Status &= FlagB
+	c.Status &= FlagU
+
+	c.SP++
+	c.PC = Bus.Word(c.Read(0x0100 + Bus.Word(c.SP)))
+	c.SP++
+	c.PC |= Bus.Word(c.Read(0x0100 + Bus.Word(c.SP)<<8))
 	return 0
 }
 
