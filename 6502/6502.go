@@ -16,6 +16,7 @@ type CPU struct {
 	addrAbs Bus.Word
 	addrRel Bus.Word
 	fetched byte
+	temp    Bus.Word
 
 	cycles       byte
 	opcode       byte
@@ -354,7 +355,7 @@ func (c *CPU) AND() byte {
 	c.A = c.A & c.fetched
 	c.SetFlag(FlagZ, c.A == 0x00)
 	c.SetFlag(FlagN, c.A&0x80 != 0)
-	return 0
+	return 1
 }
 
 func (c *CPU) EOR() byte {
@@ -362,18 +363,147 @@ func (c *CPU) EOR() byte {
 	c.A = c.A ^ c.fetched
 	c.SetFlag(FlagZ, c.A == 0x00)
 	c.SetFlag(FlagN, c.A&0x80 != 0)
+	return 1
+}
+
+func (c *CPU) ORA() byte {
+	c.fetch()
+	c.A = c.A | c.fetched
+	c.SetFlag(FlagZ, c.A == 0x00)
+	c.SetFlag(FlagN, c.A&0x80 != 0)
+	return 1
+}
+
+func (c *CPU) BIT() byte {
+	c.fetch()
+	c.temp = Bus.Word(c.A) & Bus.Word(c.fetched)
+	c.SetFlag(FlagZ, (c.temp&0x00FF) == 0x00)
+	c.SetFlag(FlagN, c.fetched&(1<<7) != 0)
+	c.SetFlag(FlagV, c.fetched&(1<<6) != 0)
 	return 0
 }
 
+// Arithmetic
 func (c *CPU) ADC() byte {
-	return 0
+	c.fetch()
+	c.temp = Bus.Word(c.A) + Bus.Word(c.fetched)
+
+	if c.GetFlag(FlagC) {
+		c.temp += 1
+	}
+
+	c.SetFlag(FlagC, c.temp > 255)
+	c.SetFlag(FlagV, Bus.Word(c.A)&Bus.Word(c.fetched)&Bus.Word(c.A)^Bus.Word(c.temp) != 0)
+	c.SetFlag(FlagN, c.temp&0x80 != 0)
+	c.A = byte(c.temp & 0x00FF)
+	return 1
 }
 
 func (c *CPU) SBC() byte {
+	c.fetch()
+
+	value := Bus.Word(c.fetched) ^ 0x00FF
+	c.temp = Bus.Word(c.A) + value
+	if c.GetFlag(FlagC) {
+		c.temp += 1
+	}
+	c.SetFlag(FlagC, c.temp&0xFF00 != 0)
+	c.SetFlag(FlagZ, (c.temp&0x00FF) == 0)
+	c.SetFlag(FlagV, (c.temp^Bus.Word(c.A))&(c.temp&value) != 0)
+	c.SetFlag(FlagN, c.temp&0x0080 != 0)
+	c.A = byte(c.temp & 0x00FF)
+	return 1
+}
+
+func (c *CPU) CMP() byte {
+	c.fetch()
+	c.temp = Bus.Word(c.A) - Bus.Word(c.fetched)
+	c.SetFlag(FlagC, c.A >= c.fetched)
+	c.SetFlag(FlagZ, (c.temp&0x00FF) == 0x000)
+	c.SetFlag(FlagN, c.temp&0x0080 != 0)
+	return 1
+}
+
+func (c *CPU) CPX() byte {
+	c.fetch()
+	c.temp = Bus.Word(c.X) - Bus.Word(c.fetched)
+	c.SetFlag(FlagC, c.X >= c.fetched)
+	c.SetFlag(FlagZ, (c.temp&0x00FF) == 0x0000)
+	c.SetFlag(FlagN, c.temp&0x0080 != 0)
 	return 0
 }
 
+func (c *CPU) CPY() byte {
+	c.fetch()
+	c.temp = Bus.Word(c.Y) - Bus.Word(c.fetched)
+	c.SetFlag(FlagC, c.Y >= c.fetched)
+	c.SetFlag(FlagZ, (c.temp&0x00FF) == 0x0000)
+	c.SetFlag(FlagN, c.temp&0x0080 != 0)
+	return 0
+}
+
+// Increments & Decrements
+func (c *CPU) INC() byte {
+	c.fetch()
+	c.temp = Bus.Word(c.fetched) + 1
+	c.Write(c.addrAbs, byte(c.temp&0x00FF))
+	c.SetFlag(FlagZ, (c.temp&0x00FF) == 0x0000)
+	c.SetFlag(FlagN, c.temp&0x0080 != 0)
+	return 0
+}
+
+func (c *CPU) INX() byte {
+	c.X++
+	c.SetFlag(FlagZ, c.X == 0x00)
+	c.SetFlag(FlagN, c.X&0x80 != 0)
+	return 0
+}
+
+func (c *CPU) INY() byte {
+	c.Y++
+	c.SetFlag(FlagZ, c.Y == 0x00)
+	c.SetFlag(FlagN, c.Y&0x80 != 0)
+	return 0
+}
+
+func (c *CPU) DEC() byte {
+	c.fetch()
+	c.temp = Bus.Word(c.fetched) - 1
+	c.Write(c.addrAbs, byte(c.temp&0x00FF))
+	c.SetFlag(FlagZ, (c.temp&0x00FF) == 0x0000)
+	c.SetFlag(FlagN, c.temp&0x0080 != 0)
+	return 0
+}
+
+func (c *CPU) DEX() byte {
+	c.X--
+	c.SetFlag(FlagZ, c.X == 0x00)
+	c.SetFlag(FlagN, c.X&0x80 != 0)
+	return 0
+}
+
+func (c *CPU) DEY() byte {
+	c.Y--
+	c.SetFlag(FlagZ, c.Y == 0x00)
+	c.SetFlag(FlagN, c.Y&0x80 != 0)
+	return 0
+}
+
+// Shifts
 func (c *CPU) ASL() byte {
+	c.fetch()
+	c.temp = Bus.Word(c.fetched) << 1
+	c.SetFlag(FlagC, (c.temp&0xFF00) > 0)
+	c.SetFlag(FlagZ, (c.temp&0x00FF) == 0x00)
+	c.SetFlag(FlagN, c.temp&0x80 != 0)
+	// TODO: IMP Addr
+	c.Write(c.addrAbs, byte(c.temp&0x00FF))
+	return 0
+}
+
+func (c *CPU) LSR() byte {
+	c.fetch()
+
 	return 0
 }
 
@@ -386,10 +516,6 @@ func (c *CPU) BCS() byte {
 }
 
 func (c *CPU) BEQ() byte {
-	return 0
-}
-
-func (c *CPU) BIT() byte {
 	return 0
 }
 
@@ -433,42 +559,6 @@ func (c *CPU) CLV() byte {
 	return 0
 }
 
-func (c *CPU) CMP() byte {
-	return 0
-}
-
-func (c *CPU) CPX() byte {
-	return 0
-}
-
-func (c *CPU) CPY() byte {
-	return 0
-}
-
-func (c *CPU) DEC() byte {
-	return 0
-}
-
-func (c *CPU) DEX() byte {
-	return 0
-}
-
-func (c *CPU) DEY() byte {
-	return 0
-}
-
-func (c *CPU) INC() byte {
-	return 0
-}
-
-func (c *CPU) INX() byte {
-	return 0
-}
-
-func (c *CPU) INY() byte {
-	return 0
-}
-
 func (c *CPU) JMP() byte {
 	return 0
 }
@@ -477,15 +567,7 @@ func (c *CPU) JSR() byte {
 	return 0
 }
 
-func (c *CPU) LSR() byte {
-	return 0
-}
-
 func (c *CPU) NOP() byte {
-	return 0
-}
-
-func (c *CPU) ORA() byte {
 	return 0
 }
 
